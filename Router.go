@@ -14,7 +14,6 @@ type Handler interface {
 //[method][path] 구조이다.
 type Router struct {
 	Handlers map[string]map[string]HandlerFunc
-	DevMode  bool
 }
 
 //HandleFunc : Router에 http 핸들러를 추가한다.
@@ -27,11 +26,6 @@ func (router *Router) HandleFunc(method, pattern string, h HandlerFunc) {
 
 		router.Handlers[method] = m
 	}
-
-	//개발모드라면 디버깅에 용이한 정보를 출력하도록 핸들러를 감싼다
-	// if router.DevMode {
-	// 	h = StaticHandler(RecoverHandler(LogHandler(h)))
-	// }
 
 	//http 메서드로 등록된 맵에 URL 패턴과 핸들러 함수 등록
 	m[pattern] = h
@@ -85,11 +79,6 @@ func (router *Router) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 			for k, v := range params {
 				c.Params[k] = v
-			}
-
-			if router.DevMode {
-				//개발모드 일 땐 Access-Control-Allow-Origin 을 모두 허용
-				c.ResponseWriter.Header().Set("Access-Control-Allow-Origin", "*")
 			}
 
 			handle(&c)

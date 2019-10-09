@@ -13,7 +13,7 @@ type Server struct {
 
 //NewServer : 새로운 서버를 생성한다.
 func NewServer() *Server {
-	r := &Router{Handlers: make(map[string]map[string]HandlerFunc), DevMode: false} //필요하면 DevMode는 따로 활성화 한다.
+	r := &Router{Handlers: make(map[string]map[string]HandlerFunc)} //필요하면 DevMode는 따로 활성화 한다.
 	s := &Server{Router: r}
 	return s
 }
