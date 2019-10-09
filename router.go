@@ -29,17 +29,21 @@ func (router *Router) HandleFunc(method, pattern string, h HandlerFunc) {
 	}
 
 	//개발모드라면 디버깅에 용이한 정보를 출력하도록 핸들러를 감싼다
-
-	if router.DevMode {
-		h = RecoverHandler(LogHandler(h))
-	}
+	// if router.DevMode {
+	// 	h = StaticHandler(RecoverHandler(LogHandler(h)))
+	// }
 
 	//http 메서드로 등록된 맵에 URL 패턴과 핸들러 함수 등록
 	m[pattern] = h
 }
 
 func match(pattern, path string) (bool, map[string]string) {
+
+	// fmt.Println("[debug] pattern :", pattern, pattern[:len(pattern)-1], "!! path", path, strings.HasSuffix(pattern, "*"), strings.HasPrefix(path, pattern[:len(pattern)-1]))
+
 	if pattern == path {
+		return true, nil
+	} else if strings.HasSuffix(pattern, "*") && strings.HasPrefix(path, pattern[:len(pattern)-1]) { // ~~/* 형태로 끝나는 URI를 모두 처리하기 위해..
 		return true, nil
 	}
 	patterns := strings.Split(pattern, "/")
@@ -67,20 +71,20 @@ func match(pattern, path string) (bool, map[string]string) {
 }
 
 func (router *Router) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	for pattern, handler := range router.Handlers[req.Method] {
+	for pattern, handle := range router.Handlers[req.Method] {
 		if ok, params := match(pattern, req.URL.Path); ok {
 			//요청 URL 에 해당하는 핸들러 수행
 			// debug code
 			// fmt.Println(pattern, params)
 
 			c := Context{
-				Param:          make(map[string]interface{}),
+				Params:         make(map[string]interface{}),
 				ResponseWriter: res,
 				Request:        req,
 			}
 
 			for k, v := range params {
-				c.Param[k] = v
+				c.Params[k] = v
 			}
 
 			if router.DevMode {
@@ -88,11 +92,33 @@ func (router *Router) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 				c.ResponseWriter.Header().Set("Access-Control-Allow-Origin", "*")
 			}
 
-			handler(&c)
+			handle(&c)
 			return
 		}
 	}
 
 	http.NotFound(res, req)
 	return
+}
+
+func (router *Router) handler() HandlerFunc {
+	return func(c *Context) {
+		// http 메서드에 맞는 모든 handers를 반복하며 요청 URL에 해당하는 handler를 찾음
+		// Todo Handler
+		for pattern, handlerFunc := range router.Handlers[c.Request.Method] {
+
+			if ok, params := match(pattern, c.Request.URL.Path); ok {
+				for k, v := range params {
+					c.Params[k] = v
+				}
+				// 요청 URL에 해당하는 handler 수행
+				handlerFunc(c)
+				return
+			}
+		}
+
+		// 요청 URL에 해당하는 handler를 찾지 못하면 NotFound 에러 처리
+		http.NotFound(c.ResponseWriter, c.Request)
+		return
+	}
 }
